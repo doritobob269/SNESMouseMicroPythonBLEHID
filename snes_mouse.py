@@ -29,11 +29,11 @@ class Device:
         self.prev_x = 0
         self.prev_y = 0
 
-        # Define buttons
-        self.pin_forward = Pin(5, Pin.IN)
-        self.pin_reverse = Pin(23, Pin.IN)
-        self.pin_right = Pin(19, Pin.IN)
-        self.pin_left = Pin(18, Pin.IN)
+        # SNES mouse pins (set your actual pin numbers)
+        CLK_PIN = 5   # Example: GPIO5
+        DATA_PIN = 23 # Example: GPIO23
+        self.snes_clk = Pin(CLK_PIN, Pin.IN)
+        self.snes_data = Pin(DATA_PIN, Pin.IN)
 
         # Create our device
         self.mouse = Mouse("Mouse")
@@ -59,12 +59,37 @@ class Device:
     def stop_advertise(self):
         self.mouse.stop_advertising()
 
+    def read_snes_mouse(self):
+        bits = []
+        # Read 16 bits, synchronized to clock (active low)
+        for _ in range(16):
+            # Wait for clock to go low (falling edge)
+            while self.snes_clk.value() == 1:
+                pass
+            # Sample data on falling edge
+            bits.append(self.snes_data.value())
+            # Wait for clock to return high
+            while self.snes_clk.value() == 0:
+                pass
+        return bits
+
+    def parse_snes_mouse(self, bits):
+        # All bits are active low (0 = active)
+        bits = [0 if b else 1 for b in bits]
+        y_dir = bits[0]
+        y_motion = (bits[1]<<6) | (bits[2]<<5) | (bits[3]<<4) | (bits[4]<<3) | (bits[5]<<2) | (bits[6]<<1) | bits[7]
+        x_dir = bits[8]
+        x_motion = (bits[9]<<6) | (bits[10]<<5) | (bits[11]<<4) | (bits[12]<<3) | (bits[13]<<2) | (bits[14]<<1) | bits[15]
+        # Convert to signed values
+        y = y_motion if y_dir else -y_motion
+        x = x_motion if x_dir else -x_motion
+        return x, y
+
     # Main loop
     def start(self):
         while True:
-            # Read pin values and update variables
-            self.x = self.pin_right.value() * 127 - self.pin_left.value() * 127
-            self.y = self.pin_forward.value() * 127 - self.pin_reverse.value() * 127
+            bits = self.read_snes_mouse()
+            self.x, self.y = self.parse_snes_mouse(bits)
 
             # If the variables changed do something depending on the device state
             if (self.x != self.prev_x) or (self.y != self.prev_y):
