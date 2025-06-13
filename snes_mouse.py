@@ -20,6 +20,11 @@ import time
 from machine import SoftSPI, Pin
 from hid_services import Mouse
 
+# --- GPIO Pin Definitions ---
+CLK_PIN = 5      # Example: GPIO5 for SNES clock
+DATA_PIN = 23    # Example: GPIO23 for SNES data
+LATCH_PIN = 18   # Example: GPIO18 for SNES latch
+
 class Device:
     def __init__(self):
         # Define state
@@ -29,11 +34,10 @@ class Device:
         self.prev_x = 0
         self.prev_y = 0
 
-        # SNES mouse pins (set your actual pin numbers)
-        CLK_PIN = 5   # Example: GPIO5
-        DATA_PIN = 23 # Example: GPIO23
+        # SNES mouse pins
         self.snes_clk = Pin(CLK_PIN, Pin.IN)
         self.snes_data = Pin(DATA_PIN, Pin.IN)
+        self.snes_latch = Pin(LATCH_PIN, Pin.IN)
 
         # Create our device
         self.mouse = Mouse("Mouse")
@@ -68,11 +72,11 @@ class Device:
         """
         bits = []
 
-        # Optional: If you have a latch pin, wait for latch pulse here
-        # while self.snes_latch.value() == 0:
-        #     pass
-        # while self.snes_latch.value() == 1:
-        #     pass  # Latch pulse ended
+        # Wait for latch pulse
+        while self.snes_latch.value() == 0:
+            pass
+        while self.snes_latch.value() == 1:
+            pass  # Latch pulse ended
 
         # --- First 16 cycles: button states ---
         # Sample first bit immediately (should be valid after latch)
