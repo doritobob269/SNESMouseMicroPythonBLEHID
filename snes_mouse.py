@@ -72,11 +72,14 @@ class Device:
         """
         bits = []
 
-        # Wait for latch pulse
+        # Wait for latch pulse (positive going)
         while self.snes_latch.value() == 0:
             pass
         while self.snes_latch.value() == 1:
             pass  # Latch pulse ended
+
+        # Protocol: Wait 6us after latch falls before first clock
+        time.sleep_us(6)
 
         # --- First 16 cycles: button states ---
         # Sample first bit immediately (should be valid after latch)
@@ -94,6 +97,9 @@ class Device:
         button_bits = bits.copy()
 
         # --- Second 16 cycles: mouse movement ---
+        # Protocol: There is a ~2.5ms pause before the next 16 clocks
+        time.sleep_ms(3)  # 2.5ms rounded up for safety
+
         move_bits = []
         for _ in range(16):
             # Wait for clock to go low (falling edge)
