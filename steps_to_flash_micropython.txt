@@ -1,0 +1,2 @@
+esptool erase_flash
+esptool --baud 460800 write_flash 0x1000 UM_TINYPICO-20250415-v1.25.0.bin
