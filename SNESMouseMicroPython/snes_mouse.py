@@ -4,6 +4,7 @@ from machine import SoftSPI, Pin
 import tinypico as TinyPICO
 import micropython
 from dotstar import DotStar
+from hid_services import Mouse
 
 # --- GPIO Pin Definitions ---
 CLK_PIN = 25      # Example: GPIO5 for SNES clock
@@ -183,12 +184,6 @@ class Device:
                 time.sleep_ms(20)
             else:
                 time.sleep_ms(20)
-            # Get the R,G,B values of the next colour
-            r,g,b = TinyPICO.dotstar_color_wheel( color_index )
-            # Set the colour on the dotstar
-            dotstar[0] = ( r, g, b, 0.5)
-            # Increase the wheel index
-            color_index += 1
 
     # Only for test
     def stop(self):
@@ -227,11 +222,6 @@ class Device:
         self.mouse.set_battery_level(100)
         self.mouse.notify_battery_level()
 
-    def led_test(self):
-        # Rainbow colours on the Dotstar
-        led_blink()
-
 if __name__ == "__main__":
     d = Device()
-    led_setup()
     d.start()
