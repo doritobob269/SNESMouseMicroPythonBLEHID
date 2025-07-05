@@ -161,6 +161,8 @@ class Device:
         else:
             set_led_color(255, 0, 0)  # Set LED to red when not connected
             time.sleep_ms(20)
+            # self.stop()
+            self.mouse.start()
 
     # Only for test
     def stop(self):
