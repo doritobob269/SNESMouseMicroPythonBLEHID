@@ -10,6 +10,8 @@ CLK_PIN = 25      # Example: GPIO5 for SNES clock
 DATA_PIN = 26    # Example: GPIO23 for SNES data
 LATCH_PIN = 27   # Example: GPIO18 for SNES latch
 
+startup_flag = False
+
 class Device:
     def __init__(self):
         # Define state
@@ -33,11 +35,21 @@ class Device:
 
     # Function that catches device status events
     def mouse_state_callback(self):
+        global startup_flag
         if self.mouse.get_state() is Mouse.DEVICE_IDLE:
+            print("idle")
+            set_led_color(255, 0, 0)
+            if(startup_flag):
+                self.mouse.start_advertising()
             return
         elif self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
+            print("advertising")
+            startup_flag = True
+            set_led_color(0, 0, 255)
             return
         elif self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
+            print("connected")
+            set_led_color(0, 255, 0)
             return
         else:
             return
@@ -128,7 +140,7 @@ class Device:
     # Main loop
     def start(self):
         while True:
-            self.check_connection_state()
+            # self.check_connection_state()
             is_mouse, button_bits, move_bits = self.read_snes_device()
             if not is_mouse:
                 # SNES controller detected, add your controller handling code here
