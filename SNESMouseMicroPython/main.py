@@ -156,12 +156,14 @@ class Device:
 
             else:
                 # print("Mouse")
-                self.x, self.y, left, right = self.parse_snes_mouse(button_bits, move_bits)
+                self.x, self.y, left_button, right_button = self.parse_snes_mouse(button_bits, move_bits)
+                print(f"Mouse X: {self.x}, Y: {self.y}, Left: {left_button}, Right: {right_button}")
+                time.sleep(1)
 
                 # If the variables changed do something depending on the device state
-                if (self.x != self.prev_x) or (self.y != self.prev_y):
-                    self.prev_x = self.x
-                    self.prev_y = self.y
+                # if (self.x != self.prev_x) or (self.y != self.prev_y):
+                #     self.prev_x = self.x
+                #     self.prev_y = self.y
 
                     # if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
                     #     self.mouse.set_axes(self.x, self.y)
