@@ -91,7 +91,7 @@ class Device:
 
         button_bits = bits.copy()
 
-        is_mouse = (button_bits[15] == 0) and False
+        is_mouse = (button_bits[15] == 0)
 
         move_bits = []
 
