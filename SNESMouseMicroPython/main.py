@@ -22,9 +22,13 @@ class Device:
         self.prev_y = 0
 
         # SNES mouse pins
-        self.snes_clk = Pin(CLK_PIN, Pin.IN)
+        self.snes_clk = Pin(CLK_PIN, Pin.OUT)
         self.snes_data = Pin(DATA_PIN, Pin.IN)
-        self.snes_latch = Pin(LATCH_PIN, Pin.IN)
+        self.snes_latch = Pin(LATCH_PIN, Pin.OUT)
+
+        # Initialize latch pin to low & clock pin to high
+        self.snes_latch.value(0)
+        self.snes_clk.value(1)
 
         # Create our device
         self.mouse = Mouse("SNES Mouse BLE")
@@ -60,7 +64,7 @@ class Device:
     def stop_advertise(self):
         self.mouse.stop_advertising()
 
-    def read_snes_device(self, prev_latch_state):
+    def read_snes_device(self):
         """
         Reads 32 bits from the SNES controller port:
         - First 16 bits: button states (controller or mouse)
@@ -70,41 +74,40 @@ class Device:
         """
         bits = []
 
-        latch_now = self.snes_latch.value()
-        if prev_latch_state == 0 and latch_now == 1:
-            # Positive edge detected
+        self.snes_latch.value(1)
+        time.sleep_us(12)
+        self.snes_latch.value(0)
 
-            # Do NOT wait for latch pulse to end (fully non-blocking)
-            # Protocol: Wait 6us after latch goes high before first clock
+        # Protocol: Wait 6us after latch goes high before first clock
+        time.sleep_us(6)
+
+        # --- First 16 cycles: button states ---
+        for _ in range(16):
+            self.snes_clk.value(0)
+            bits.append(self.snes_data.value())
+            time.sleep_us(6)
+            self.snes_clk.value(1)
             time.sleep_us(6)
 
-            # --- First 16 cycles: button states ---
-            bits.append(self.snes_data.value())
-            for _ in range(15):
-                while self.snes_clk.value() == 1:
-                    pass
-                while self.snes_clk.value() == 0:
-                    pass
-                bits.append(self.snes_data.value())
+        button_bits = bits.copy()
 
-            button_bits = bits.copy()
+        is_mouse = (button_bits[15] == 0)
 
+        if(is_mouse):
             # --- Second 16 cycles: mouse movement ---
-            time.sleep_ms(3)  # 2.5ms rounded up for safety
+            time.sleep_ms(2.5)  # 2.5ms rounded up for safety
 
-            move_bits = []
+            extra_bits = []
             for _ in range(16):
-                while self.snes_clk.value() == 1:
-                    pass
-                while self.snes_clk.value() == 0:
-                    pass
-                move_bits.append(self.snes_data.value())
+                self.snes_clk.value(0)
+                extra_bits.append(self.snes_data.value())
+                time.sleep_us(0.5)
+                self.snes_clk.value(1)
+                time.sleep_us(8)
 
-            is_mouse = (button_bits[15] == 0)
-            return is_mouse, button_bits, move_bits, latch_now
-        else:
-            # No positive edge, nothing to read
-            return None, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], None, latch_now
+            move_bits = extra_bits.copy()
+
+        return is_mouse, button_bits, move_bits
 
     def parse_snes_mouse(self, button_bits, move_bits):
         # All bits are active low (0 = active)
@@ -127,12 +130,11 @@ class Device:
 
     # Main loop
     def start(self):
-        prev_latch_state = self.snes_latch.value()
         if self.mouse.get_state() is Mouse.DEVICE_IDLE:
             self.mouse.start_advertising()
         while True:
             # self.test()
-            is_mouse, button_bits, move_bits, prev_latch_state = self.read_snes_device(prev_latch_state)
+            is_mouse, button_bits, move_bits = self.read_snes_device()
             # self.mouse.notify_hid_report()
             if not is_mouse:
                 # SNES controller detected, add your controller handling code here
