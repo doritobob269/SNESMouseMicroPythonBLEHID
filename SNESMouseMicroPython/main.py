@@ -104,7 +104,7 @@ class Device:
             return is_mouse, button_bits, move_bits, latch_now
         else:
             # No positive edge, nothing to read
-            return None, None, None, latch_now
+            return None, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], None, latch_now
 
     def parse_snes_mouse(self, button_bits, move_bits):
         # All bits are active low (0 = active)
@@ -128,15 +128,28 @@ class Device:
     # Main loop
     def start(self):
         prev_latch_state = self.snes_latch.value()
+        if self.mouse.get_state() is Mouse.DEVICE_IDLE:
+            self.mouse.start_advertising()
         while True:
+            # self.test()
             is_mouse, button_bits, move_bits, prev_latch_state = self.read_snes_device(prev_latch_state)
+            # self.mouse.notify_hid_report()
             if not is_mouse:
                 # SNES controller detected, add your controller handling code here
-                print("Controller")
+                # print("Controller")
+                # Print button bits as a table with SNES button names
+                button_names = [
+                    "B", "Y", "s", "S", "^", "v", "<", ">",
+                    "A", "X", "L", "R", "-", "-", "-", "I"
+                ]
+                print("| " + " | ".join(button_names) + " |")
+                print("|" + "|".join("---" for _ in button_names) + "|")
+                print("| " + " | ".join(str(bit) for bit in button_bits) + " |")
+                print("=" * (1 + len(button_names) * 4))
                 continue
 
             else:
-                print("Mouse")
+                # print("Mouse")
                 self.x, self.y, left, right = self.parse_snes_mouse(button_bits, move_bits)
 
                 # If the variables changed do something depending on the device state
@@ -168,28 +181,44 @@ class Device:
 
         for i in range(30):
             self.mouse.set_axes(100,100)
-            self.mouse.set_buttons(1)
-            self.mouse.notify_hid_report()
+            self.mouse.set_buttons()
+            try:
+                self.mouse.notify_hid_report()
+            except:
+                print("Error notifying HID report")
+
             time.sleep_ms(500)
 
             self.mouse.set_axes(100,-100)
             self.mouse.set_buttons()
-            self.mouse.notify_hid_report()
+            try:
+                self.mouse.notify_hid_report()
+            except:
+                print("Error notifying HID report")
             time.sleep_ms(500)
 
             self.mouse.set_axes(-100,-100)
-            self.mouse.set_buttons(b2=1)
-            self.mouse.notify_hid_report()
+            self.mouse.set_buttons()
+            try:
+                self.mouse.notify_hid_report()
+            except:
+                print("Error notifying HID report")
             time.sleep_ms(500)
 
             self.mouse.set_axes(-100,100)
             self.mouse.set_buttons()
-            self.mouse.notify_hid_report()
+            try:
+                self.mouse.notify_hid_report()
+            except:
+                print("Error notifying HID report")
             time.sleep_ms(500)
 
         self.mouse.set_axes(0,0)
         self.mouse.set_buttons()
-        self.mouse.notify_hid_report()
+        try:
+            self.mouse.notify_hid_report()
+        except:
+            print("Error notifying HID report")
 
         self.mouse.set_battery_level(100)
         self.mouse.notify_battery_level()
