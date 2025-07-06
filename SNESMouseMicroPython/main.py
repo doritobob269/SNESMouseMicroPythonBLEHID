@@ -6,9 +6,9 @@ from dotstar import DotStar
 from hid_services import Mouse
 
 # --- GPIO Pin Definitions ---
-CLK_PIN = 25      # Example: GPIO5 for SNES clock
-DATA_PIN = 26    # Example: GPIO23 for SNES data
-LATCH_PIN = 27   # Example: GPIO18 for SNES latch
+CLK_PIN = 23      # Example: GPIO23 for SNES clock
+DATA_PIN = 19    # Example: GPIO19 for SNES data
+LATCH_PIN = 18   # Example: GPIO18 for SNES latch
 
 startup_flag = False
 
@@ -91,17 +91,20 @@ class Device:
 
         button_bits = bits.copy()
 
-        is_mouse = (button_bits[15] == 0)
+        is_mouse = (button_bits[15] == 0) and False
+
+        move_bits = []
 
         if(is_mouse):
+            print("mouse")
             # --- Second 16 cycles: mouse movement ---
-            time.sleep_ms(2.5)  # 2.5ms rounded up for safety
+            time.sleep_us(2500)  # 2.5ms rounded up for safety
 
             extra_bits = []
             for _ in range(16):
                 self.snes_clk.value(0)
                 extra_bits.append(self.snes_data.value())
-                time.sleep_us(0.5)
+                time.sleep_us(1)
                 self.snes_clk.value(1)
                 time.sleep_us(8)
 
@@ -148,6 +151,7 @@ class Device:
                 print("|" + "|".join("---" for _ in button_names) + "|")
                 print("| " + " | ".join(str(bit) for bit in button_bits) + " |")
                 print("=" * (1 + len(button_names) * 4))
+                time.sleep(1)
                 continue
 
             else:
