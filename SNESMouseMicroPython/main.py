@@ -60,63 +60,51 @@ class Device:
     def stop_advertise(self):
         self.mouse.stop_advertising()
 
-    def read_snes_device(self):
+    def read_snes_device(self, prev_latch_state):
         """
         Reads 32 bits from the SNES controller port:
         - First 16 bits: button states (controller or mouse)
         - Second 16 bits: mouse movement (if mouse)
-        Returns: (is_mouse, button_bits, movement_bits)
+        Returns: (is_mouse, button_bits, movement_bits, new_latch_state)
+        Only reads when a positive edge (0->1) is detected on latch.
         """
         bits = []
 
-        # Wait for latch pulse (positive going)
-        while self.snes_latch.value() == 0:
-            #pass
-            break
-        while self.snes_latch.value() == 1:
-            #pass
-            break  # Latch pulse ended
+        latch_now = self.snes_latch.value()
+        if prev_latch_state == 0 and latch_now == 1:
+            # Positive edge detected
 
-        # Protocol: Wait 6us after latch falls before first clock
-        time.sleep_us(6)
+            # Do NOT wait for latch pulse to end (fully non-blocking)
+            # Protocol: Wait 6us after latch goes high before first clock
+            time.sleep_us(6)
 
-        # --- First 16 cycles: button states ---
-        # Sample first bit immediately (should be valid after latch)
-        bits.append(self.snes_data.value())
-        for _ in range(15):
-            # Wait for clock to go low (falling edge)
-            while self.snes_clk.value() == 1:
-                #pass
-                break
-            # Wait for clock to go high (rising edge)
-            while self.snes_clk.value() == 0:
-                #pass
-                break
-            # Sample data just after rising edge
+            # --- First 16 cycles: button states ---
             bits.append(self.snes_data.value())
+            for _ in range(15):
+                while self.snes_clk.value() == 1:
+                    pass
+                while self.snes_clk.value() == 0:
+                    pass
+                bits.append(self.snes_data.value())
 
-        button_bits = bits.copy()
+            button_bits = bits.copy()
 
-        # --- Second 16 cycles: mouse movement ---
-        # Protocol: There is a ~2.5ms pause before the next 16 clocks
-        time.sleep_ms(3)  # 2.5ms rounded up for safety
+            # --- Second 16 cycles: mouse movement ---
+            time.sleep_ms(3)  # 2.5ms rounded up for safety
 
-        move_bits = []
-        for _ in range(16):
-            # Wait for clock to go low (falling edge)
-            while self.snes_clk.value() == 1:
-                #pass
-                break
-            # Wait for clock to go high (rising edge)
-            while self.snes_clk.value() == 0:
-                #pass
-                break
-            # Sample data just after rising edge
-            move_bits.append(self.snes_data.value())
+            move_bits = []
+            for _ in range(16):
+                while self.snes_clk.value() == 1:
+                    pass
+                while self.snes_clk.value() == 0:
+                    pass
+                move_bits.append(self.snes_data.value())
 
-        # Mouse detection: bit 15 (index 15) of first 16 bits is LOW for mouse, HIGH for controller
-        is_mouse = (button_bits[15] == 0)
-        return is_mouse, button_bits, move_bits
+            is_mouse = (button_bits[15] == 0)
+            return is_mouse, button_bits, move_bits, latch_now
+        else:
+            # No positive edge, nothing to read
+            return None, None, None, latch_now
 
     def parse_snes_mouse(self, button_bits, move_bits):
         # All bits are active low (0 = active)
@@ -139,31 +127,35 @@ class Device:
 
     # Main loop
     def start(self):
+        prev_latch_state = self.snes_latch.value()
         while True:
-            is_mouse, button_bits, move_bits = self.read_snes_device()
+            is_mouse, button_bits, move_bits, prev_latch_state = self.read_snes_device(prev_latch_state)
             if not is_mouse:
                 # SNES controller detected, add your controller handling code here
+                print("Controller")
                 continue
 
-            self.x, self.y, left, right = self.parse_snes_mouse(button_bits, move_bits)
+            else:
+                print("Mouse")
+                self.x, self.y, left, right = self.parse_snes_mouse(button_bits, move_bits)
 
-            # If the variables changed do something depending on the device state
-            if (self.x != self.prev_x) or (self.y != self.prev_y):
-                self.prev_x = self.x
-                self.prev_y = self.y
+                # If the variables changed do something depending on the device state
+                if (self.x != self.prev_x) or (self.y != self.prev_y):
+                    self.prev_x = self.x
+                    self.prev_y = self.y
 
-                if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
-                    self.mouse.set_axes(self.x, self.y)
-                    self.mouse.set_buttons(left, right)
-                    self.mouse.notify_hid_report()
-                elif self.mouse.get_state() is Mouse.DEVICE_IDLE:
-                    self.mouse.start_advertising()
-                    i = 10
-                    while i > 0 and self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
-                        time.sleep(3)
-                        i -= 1
-                    if self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
-                        self.mouse.stop_advertising()
+                    # if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
+                    #     self.mouse.set_axes(self.x, self.y)
+                    #     self.mouse.set_buttons(left, right)
+                    #     self.mouse.notify_hid_report()
+                    # elif self.mouse.get_state() is Mouse.DEVICE_IDLE:
+                    #     self.mouse.start_advertising()
+                    #     i = 10
+                    #     while i > 0 and self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
+                    #         time.sleep(3)
+                    #         i -= 1
+                    #     if self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
+                    #         self.mouse.stop_advertising()
 
     # Only for test
     def stop(self):
