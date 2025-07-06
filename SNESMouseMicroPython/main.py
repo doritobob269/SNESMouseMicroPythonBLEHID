@@ -140,7 +140,6 @@ class Device:
     # Main loop
     def start(self):
         while True:
-            # self.check_connection_state()
             is_mouse, button_bits, move_bits = self.read_snes_device()
             if not is_mouse:
                 # SNES controller detected, add your controller handling code here
@@ -165,16 +164,6 @@ class Device:
                         i -= 1
                     if self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
                         self.mouse.stop_advertising()
-
-    def check_connection_state(self):
-        if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
-            set_led_color(0, 255, 0)  # Set LED to green when connected
-            time.sleep_ms(20)
-        else:
-            set_led_color(255, 0, 0)  # Set LED to red when not connected
-            time.sleep_ms(20)
-            # self.stop()
-            self.mouse.start()
 
     # Only for test
     def stop(self):
