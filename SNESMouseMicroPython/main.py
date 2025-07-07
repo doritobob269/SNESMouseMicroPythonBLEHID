@@ -98,7 +98,7 @@ class Device:
         move_bits = []
 
         if(is_mouse):
-            print("mouse")
+            # print("mouse")
             # --- Second 16 cycles: mouse movement ---
             time.sleep_us(2500)  # 2.5ms rounded up for safety
 
@@ -177,7 +177,7 @@ class Device:
                     self.mouse.notify_hid_report()
                 except:
                     print("Error notifying HID report")
-                time.sleep(1)
+                time.sleep(0.1)
 
                 # If the variables changed do something depending on the device state
                 # if (self.x != self.prev_x) or (self.y != self.prev_y):
