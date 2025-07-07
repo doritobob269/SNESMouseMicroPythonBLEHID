@@ -30,6 +30,8 @@ class Device:
         self.snes_latch.value(0)
         self.snes_clk.value(1)
 
+        self.sensitivity = "Unknown"  # Default sensitivity
+
         # Create our device
         self.mouse = Mouse("SNES Mouse BLE")
         # Set a callback function to catch changes of device state
@@ -118,18 +120,28 @@ class Device:
         move_bits = [0 if b else 1 for b in move_bits]
 
         # Mouse buttons: left (cycle 9), right (cycle 10)
-        left_button = not button_bits[8]   # Active low
-        right_button = not button_bits[9]  # Active low
+        left_button = button_bits[9]   # Active low
+        right_button = button_bits[8]  # Active low
 
         # Mouse movement (cycles 17-32)
-        y_dir = move_bits[0]
+        y_dir = not move_bits[0]
         y_motion = (move_bits[1]<<6) | (move_bits[2]<<5) | (move_bits[3]<<4) | (move_bits[4]<<3) | (move_bits[5]<<2) | (move_bits[6]<<1) | move_bits[7]
-        x_dir = move_bits[8]
+        x_dir = not move_bits[8]
         x_motion = (move_bits[9]<<6) | (move_bits[10]<<5) | (move_bits[11]<<4) | (move_bits[12]<<3) | (move_bits[13]<<2) | (move_bits[14]<<1) | move_bits[15]
         y = y_motion if y_dir else -y_motion
         x = x_motion if x_dir else -x_motion
 
-        return x, y, left_button, right_button
+        # Sensitivity bits (active low, so 0 = active)
+        bit11 = move_bits[11]
+        bit12 = move_bits[12]
+        if bit11 == 0 and bit12 == 1:
+            self.sensitivity = "High"
+        elif bit11 == 1 and bit12 == 0:
+            self.sensitivity = "Medium"
+        elif bit11 == 1 and bit12 == 1:
+            self.sensitivity = "Low"
+
+        return x, y, left_button, right_button, self.sensitivity
 
     # Main loop
     def start(self):
@@ -156,8 +168,15 @@ class Device:
 
             else:
                 # print("Mouse")
-                self.x, self.y, left_button, right_button = self.parse_snes_mouse(button_bits, move_bits)
-                print(f"Mouse X: {self.x}, Y: {self.y}, Left: {left_button}, Right: {right_button}")
+                self.x, self.y, left_button, right_button, sensitivity = self.parse_snes_mouse(button_bits, move_bits)
+                print(f"Mouse X: {self.x}, Y: {self.y}, Left: {left_button}, Right: {right_button}, Sensitivity: {sensitivity}")
+
+                self.mouse.set_axes(self.x, self.y)
+                self.mouse.set_buttons(left_button, right_button)
+                try:
+                    self.mouse.notify_hid_report()
+                except:
+                    print("Error notifying HID report")
                 time.sleep(1)
 
                 # If the variables changed do something depending on the device state
